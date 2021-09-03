@@ -8,10 +8,10 @@ export const handler = middy(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     console.log('Caller event', event)
 
-    const todoId = event.pathParameters.todoId
-    const presignedURL = await createAttachmentPresignedUrl(todoId)
+    const gameId = event.pathParameters.gameId
+    const presignedURL = await createAttachmentPresignedUrl(gameId)
 
-    console.log('Item ', todoId, ' returned a presigned URL of ', presignedURL)
+    console.log('Item ', gameId, ' returned a presigned URL of ', presignedURL)
 
     return {
       statusCode: 200,

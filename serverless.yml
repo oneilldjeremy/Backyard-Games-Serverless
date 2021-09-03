@@ -1,7 +1,7 @@
 # TODO: Change the name of the org 
 org: oneilldjeremy
-app: serverless-todo-app
-service: serverless-todo-app
+app: backyard-games
+service: backyard-games
 
 plugins:
   - serverless-webpack
@@ -21,32 +21,13 @@ provider:
     apiGateway: true
 
   environment:
-    TODOS_TABLE: Todos-${self:provider.stage}
-    TODOS_CREATED_AT_INDEX: CreatedAtIndex
-    ATTACHMENT_S3_BUCKET: serverless-joneill-todo-images-${self:provider.stage}
+    GAMES_TABLE: Games-${self:provider.stage}
+    GAMES_CREATED_AT_INDEX: CreatedAtIndex
+    ATTACHMENT_S3_BUCKET: serverless-joneill-backyard-games-${self:provider.stage}
     SIGNED_URL_EXPIRATION: 300
 
   logs:
     restApi: true
-
-  iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - dynamodb:Scan
-        - dynamodb:PutItem
-        - dynamodb:GetItem
-        - dynamodb:Query
-      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
-    - Effect: Allow
-      Action:
-        - s3:PutObject
-        - s3:GetObject
-      Resource: arn:aws:s3:::${self:provider.environment.ATTACHMENT_S3_BUCKET}/*
-    - Effect: Allow
-      Action:
-        - xray:PutTelemetryRecords
-        - xray:PutTraceSegments
-      Resource: "*"
 
 
 functions:
@@ -54,74 +35,88 @@ functions:
   Auth:
     handler: src/lambda/auth/auth0Authorizer.handler
 
-  GetTodos:
-    handler: src/lambda/http/getTodos.handler
+  GetGames:
+    handler: src/lambda/http/getGames.handler
     events:
       - http:
           method: get
-          path: todos
+          path: games
+          cors: true
+          authorizer: Auth
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.GAMES_TABLE}
+
+  GetUserGames:
+    handler: src/lambda/http/getUserGames.handler
+    events:
+      - http:
+          method: get
+          path: games/mygames
           cors: true
           authorizer: Auth
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:Query
-        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.GAMES_TABLE}
 
-  CreateTodo:
-    handler: src/lambda/http/createTodo.handler
+  CreateGame:
+    handler: src/lambda/http/createGame.handler
     events:
       - http:
           method: post
-          path: todos
+          path: games
           cors: true
           authorizer: Auth
           request:
             schemas:
-              application/json: ${file(models/create-todo-model.json)}
+              application/json: ${file(models/create-game-model.json)}
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:PutItem
-        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.GAMES_TABLE}
 
-  UpdateTodo:
-    handler: src/lambda/http/updateTodo.handler
+  UpdateGame:
+    handler: src/lambda/http/updateGame.handler
     events:
       - http:
           method: patch
-          path: todos/{todoId}
+          path: games/{gameId}
           cors: true
           authorizer: Auth
           request:
             schemas:
-              application/json: ${file(models/update-todo-model.json)}
+              application/json: ${file(models/update-game-model.json)}
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:UpdateItem
-        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.GAMES_TABLE}
 
-  DeleteTodo:
-    handler: src/lambda/http/deleteTodo.handler
+  DeleteGame:
+    handler: src/lambda/http/deleteGame.handler
     events:
       - http:
           method: delete
-          path: todos/{todoId}
+          path: games/{gameId}
           cors: true
           authorizer: Auth
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:DeleteItem
-        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.GAMES_TABLE}
 
   GenerateUploadUrl:
     handler: src/lambda/http/generateUploadUrl.handler
     events:
       - http:
           method: post
-          path: todos/{todoId}/attachment
+          path: games/{gameId}/attachment
           cors: true
           authorizer: Auth
     iamRoleStatements:
@@ -143,27 +138,27 @@ resources:
         RestApiId:
           Ref: ApiGatewayRestApi
     
-    TodosTable:
+    GamesTable:
       Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
-          - AttributeName: userId
+          - AttributeName: createdByUserId
             AttributeType: S
-          - AttributeName: todoId
+          - AttributeName: gameId
             AttributeType: S
           - AttributeName: createdAt
             AttributeType: S
         KeySchema:
-          - AttributeName: userId
+          - AttributeName: createdByUserId
             KeyType: HASH
-          - AttributeName: todoId
+          - AttributeName: gameId
             KeyType: RANGE
         BillingMode: PAY_PER_REQUEST
-        TableName: ${self:provider.environment.TODOS_TABLE}
+        TableName: ${self:provider.environment.GAMES_TABLE}
         LocalSecondaryIndexes:
-          - IndexName: ${self:provider.environment.TODOS_CREATED_AT_INDEX}
+          - IndexName: ${self:provider.environment.GAMES_CREATED_AT_INDEX}
             KeySchema:
-              - AttributeName: userId
+              - AttributeName: createdByUserId
                 KeyType: HASH
               - AttributeName: createdAt
                 KeyType: RANGE
